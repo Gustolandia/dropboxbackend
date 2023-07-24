@@ -5,3 +5,12 @@ controllers:
         path: ../src/Controller/
         namespace: App\Controller
     type: attribute
+editUser:
+    path: '/api/user/edit'
+    methods: ['PUT', 'PATCH']
+    controller: 'App\Controller\UserController::editUser'
+
+logout:
+    path: '/api/user/logout'
+    methods: ['POST']
+    controller: 'App\Controller\LogoutController::logout'

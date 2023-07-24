@@ -11,7 +11,7 @@ use Doctrine\Persistence\ManagerRegistry;
 use App\Entity\User;
 
 /**
- * @Route("/api", name="api_")
+ * @Route("/api/user", name="api_")
  */
 
 class RegistrationController extends AbstractController
