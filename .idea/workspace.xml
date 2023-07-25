@@ -5,20 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="fea65c1f-adae-4cae-ab94-faacee6ff497" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/userAuthentication/src/Controller/UserController.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/userAuthentication/.env" beforeDir="false" afterPath="$PROJECT_DIR$/userAuthentication/.env" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/userAuthentication/composer.json" beforeDir="false" afterPath="$PROJECT_DIR$/userAuthentication/composer.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/userAuthentication/composer.lock" beforeDir="false" afterPath="$PROJECT_DIR$/userAuthentication/composer.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/userAuthentication/config/bundles.php" beforeDir="false" afterPath="$PROJECT_DIR$/userAuthentication/config/bundles.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/userAuthentication/config/packages/security.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/userAuthentication/config/packages/security.yaml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/userAuthentication/config/routes.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/userAuthentication/config/routes.yaml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/userAuthentication/config/services.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/userAuthentication/config/services.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/userAuthentication/migrations/Version20230718110343.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/userAuthentication/src/Controller/DashboardController.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/userAuthentication/src/Controller/RegistrationController.php" beforeDir="false" afterPath="$PROJECT_DIR$/userAuthentication/src/Controller/RegistrationController.php" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/userAuthentication/src/Entity/User.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/userAuthentication/src/Repository/UserRepository.php" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/userAuthentication/symfony.lock" beforeDir="false" afterPath="$PROJECT_DIR$/userAuthentication/symfony.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/userAuthentication/src/Controller/UserController.php" beforeDir="false" afterPath="$PROJECT_DIR$/userAuthentication/src/Controller/UserController.php" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -147,7 +138,8 @@
       <workItem from="1689680817509" duration="4211000" />
       <workItem from="1689755184453" duration="9378000" />
       <workItem from="1689927976630" duration="3049000" />
-      <workItem from="1690189312205" duration="17551000" />
+      <workItem from="1690189312205" duration="18454000" />
+      <workItem from="1690276423546" duration="7766000" />
     </task>
     <servers />
   </component>

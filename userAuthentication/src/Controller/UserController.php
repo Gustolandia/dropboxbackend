@@ -8,6 +8,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Annotation\Route;
 use App\Entity\User;
+use App\Entity\BlacklistedToken;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -110,19 +111,43 @@ class UserController extends AbstractController
      *
      * @Route("/logout", name="logout", methods={"POST"})
      */
-    public function logout(): JsonResponse
+    public function logout(Request $request)
     {
-        $user = $this->getUser(); // Get the user associated with the token
+        // Get the JWT token from the Authorization header in the request
+        $authorizationHeader = $request->headers->get('Authorization');
+        $token = str_replace('Bearer ', '', $authorizationHeader);
 
-        if ($user) {
-            $tokenString = $this->jwtTokenManager->create($user);
-            $this->jwtTokenManager->invalidate($tokenString);
+        if ($token !== null) {
+            // Invalidate the user's current token by adding it to the blacklist
+            $blacklistedToken = new BlacklistedToken();
+            $blacklistedToken->setToken($token);
+
+            $this->entityManager->persist($blacklistedToken);
+            $this->entityManager->flush();
         }
 
-        // Perform any additional logout logic you may need
-
-        // Return the logout success response
-        return new JsonResponse(['message' => 'Logout successful']);
+        return $this->json(['message' => 'Logout successful']);
     }
+
+    /**
+     * @Route("/delete", name="delete", methods={"DELETE"})
+     */
+    public function delete(Request $request, UserInterface $user): JsonResponse
+    {
+
+        if ($user !== $this->getUser()) {
+            return new JsonResponse(['error' => 'Access denied'], Response::HTTP_FORBIDDEN);
+        }
+
+
+        // Remove the user entity
+        $this->entityManager->remove($user);
+        $this->entityManager->flush();
+
+        // Return a success response
+        return new JsonResponse(['message' => 'User deleted successfully']);
+    }
+
+
 
 }

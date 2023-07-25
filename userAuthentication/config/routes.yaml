@@ -13,4 +13,4 @@ editUser:
 logout:
     path: '/api/user/logout'
     methods: ['POST']
-    controller: 'App\Controller\LogoutController::logout'
+    controller: 'App\Controller\UserController::logout'
