@@ -13,8 +13,6 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
-use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 
 
 
@@ -26,15 +24,15 @@ class UserController extends AbstractController
 {
     private $entityManager;
 
-    private $jwtTokenManager;
-    private $tokenStorage;
+    private $doctrine;
 
-    public function __construct(EntityManagerInterface $entityManager, JWTTokenManagerInterface $jwtTokenManager, TokenStorageInterface $tokenStorage)
+
+    public function __construct(EntityManagerInterface $entityManager, ManagerRegistry $doctrine)
     {
 
         $this->entityManager = $entityManager;
-        $this->jwtTokenManager = $jwtTokenManager;
-        $this->tokenStorage = $tokenStorage;
+        $this->doctrine = $doctrine;
+
     }
 
     /**
@@ -43,6 +41,10 @@ class UserController extends AbstractController
     public function me(Request $request): Response
     {
 
+        $bToken = $this->getBToken($request);
+        if ($bToken !== []) {
+            return new JsonResponse(['error' => 'Access denied' ], Response::HTTP_FORBIDDEN);
+        }
         // Access the authenticated user (if available)
         /** @var UserInterface|null $user */
         $user = $this->getUser();
@@ -56,6 +58,7 @@ class UserController extends AbstractController
             return $this->json([
                 'username' => $username,
                 'email' => $email,
+                'password' => '*******',
             ]);
         } else {
             // Handle unauthenticated requests
@@ -68,38 +71,43 @@ class UserController extends AbstractController
      * Edit the current authenticated user.
      *
      * @param Request $request
-     * @param UserInterface $user
-     * @return JsonResponse
+     * @return Response
      *
-     * * @Route("/edit", name="editUser")
+     * * @Route("/edit", name="editUser", methods={"PUT"}))
      */
-    public function editUser(Request $request, UserInterface $user, UserPasswordHasherInterface $passwordHasher): JsonResponse
+    public function editUser(Request $request, UserPasswordHasherInterface $passwordHasher): Response
     {
-        // Ensure the authenticated user matches the user being edited
-        if ($user !== $this->getUser()) {
-            return new JsonResponse(['error' => 'Access denied'], Response::HTTP_FORBIDDEN);
+        $bToken = $this->getBToken($request);
+        if ($bToken !== []) {
+            return new JsonResponse(['error' => 'Access denied' ], Response::HTTP_FORBIDDEN);
         }
+        // Ensure the authenticated user matches the user being edited
 
-        // Get the data from the request body
-        $requestData = json_decode($request->getContent(), true);
+        /** @var UserInterface|null $user */
+        $user = $this->getUser();
+        $decoded = json_decode($request->getContent());
 
         // Perform validation and update the user entity properties as needed
-        if (isset($requestData['username'])) {
-            $user->setUsername($requestData['username']);
+        if (isset($decoded->email)) {
+            $user->setEmail($decoded->email);
         }
-        if (isset($requestData['email'])) {
-            $user->setEmail($requestData['email']);
+        if (isset($decoded->username)) {
+            $user->setUsername($decoded->username);
         }
-        if (isset($requestData['password'])) {
+        if (isset($decoded->password)) {
             $hashedPassword = $passwordHasher->hashPassword(
                 $user,
-                $requestData['password']
+                $decoded->password
             );
 
             $user->setPassword($hashedPassword);
         }
 
+
+
+
         // Persist the changes in the database
+        $this->entityManager->persist($user);
         $this->entityManager->flush();
 
         // Return a success response
@@ -113,6 +121,10 @@ class UserController extends AbstractController
      */
     public function logout(Request $request)
     {
+        $bToken = $this->getBToken($request);
+        if ($bToken !== []) {
+            return new JsonResponse(['error' => 'Access denied' ], Response::HTTP_FORBIDDEN);
+        }
         // Get the JWT token from the Authorization header in the request
         $authorizationHeader = $request->headers->get('Authorization');
         $token = str_replace('Bearer ', '', $authorizationHeader);
@@ -134,6 +146,10 @@ class UserController extends AbstractController
      */
     public function delete(Request $request, UserInterface $user): JsonResponse
     {
+        $bToken = $this->getBToken($request);
+        if ($bToken !== []) {
+            return new JsonResponse(['error' => 'Access denied' ], Response::HTTP_FORBIDDEN);
+        }
 
         if ($user !== $this->getUser()) {
             return new JsonResponse(['error' => 'Access denied'], Response::HTTP_FORBIDDEN);
@@ -148,6 +164,23 @@ class UserController extends AbstractController
         return new JsonResponse(['message' => 'User deleted successfully']);
     }
 
+    /**
+     * @param Request $request
+     * @return float|int|mixed|string
+     */
+    public function getBToken(Request $request): mixed
+    {
+        $authorizationHeader = $request->headers->get('Authorization');
+        $token = str_replace('Bearer ', '', $authorizationHeader);
+
+        $bTokenRepository = $this->doctrine->getRepository(BlacklistedToken::class);
+        $bToken = $bTokenRepository->createQueryBuilder('t')
+            ->where('t.token LIKE :token')
+            ->setParameter('token', '%' . $token . '%')
+            ->getQuery()
+            ->getResult();
+        return $bToken;
+    }
 
 
 }

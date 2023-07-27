@@ -8,7 +8,6 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/userAuthentication/config/packages/security.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/userAuthentication/config/packages/security.yaml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/userAuthentication/config/routes.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/userAuthentication/config/routes.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/userAuthentication/config/services.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/userAuthentication/config/services.yaml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/userAuthentication/src/Controller/UserController.php" beforeDir="false" afterPath="$PROJECT_DIR$/userAuthentication/src/Controller/UserController.php" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -107,6 +106,9 @@
       <path value="$PROJECT_DIR$/userAuthentication/vendor/lcobucci/jwt" />
     </include_path>
   </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
   <component name="ProjectId" id="2SjqoDrNAlhfk9MdoSEkLcHGtcg" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -139,7 +141,10 @@
       <workItem from="1689755184453" duration="9378000" />
       <workItem from="1689927976630" duration="3049000" />
       <workItem from="1690189312205" duration="18454000" />
-      <workItem from="1690276423546" duration="7766000" />
+      <workItem from="1690276423546" duration="12198000" />
+      <workItem from="1690358383369" duration="1011000" />
+      <workItem from="1690448316900" duration="92000" />
+      <workItem from="1690448420547" duration="10691000" />
     </task>
     <servers />
   </component>
