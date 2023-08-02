@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -47,6 +49,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     #[ORM\Column]
     private ?string $password = null;
+
+    #[ORM\OneToMany(mappedBy: 'user', targetEntity: Folder::class, orphanRemoval: true)]
+    private Collection $folders;
+
+    #[ORM\OneToMany(mappedBy: 'user', targetEntity: File::class, orphanRemoval: true)]
+    private Collection $files;
+
+    public function __construct()
+    {
+        $this->folders = new ArrayCollection();
+        $this->files = new ArrayCollection();
+    }
 
     public function getId(): ?int
     {
@@ -116,5 +130,65 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         // If you store any temporary, sensitive data on the user, clear it here
         // $this->plainPassword = null;
+    }
+
+    /**
+     * @return Collection<int, Folder>
+     */
+    public function getFolders(): Collection
+    {
+        return $this->folders;
+    }
+
+    public function addFolder(Folder $folder): static
+    {
+        if (!$this->folders->contains($folder)) {
+            $this->folders->add($folder);
+            $folder->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeFolder(Folder $folder): static
+    {
+        if ($this->folders->removeElement($folder)) {
+            // set the owning side to null (unless already changed)
+            if ($folder->getUser() === $this) {
+                $folder->setUser(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, File>
+     */
+    public function getFiles(): Collection
+    {
+        return $this->files;
+    }
+
+    public function addFile(File $file): static
+    {
+        if (!$this->files->contains($file)) {
+            $this->files->add($file);
+            $file->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeFile(File $file): static
+    {
+        if ($this->files->removeElement($file)) {
+            // set the owning side to null (unless already changed)
+            if ($file->getUser() === $this) {
+                $file->setUser(null);
+            }
+        }
+
+        return $this;
     }
 }
