@@ -22,9 +22,9 @@ use Doctrine\ORM\EntityManagerInterface;
 
 class UserController extends AbstractController
 {
-    private $entityManager;
+    private EntityManagerInterface $entityManager;
 
-    private $doctrine;
+    private ManagerRegistry $doctrine;
 
 
     public function __construct(EntityManagerInterface $entityManager, ManagerRegistry $doctrine)

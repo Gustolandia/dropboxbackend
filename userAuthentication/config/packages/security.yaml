@@ -37,7 +37,7 @@ security:
     access_control:
         - { path: ^/api/user/register, roles: PUBLIC_ACCESS  }
         - { path: ^/api/user/login_check, roles: PUBLIC_ACCESS  }
-        - { path: ^/rest/v1/fie,       roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/file,       roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api/user,       roles: IS_AUTHENTICATED_FULLY }
 
 
