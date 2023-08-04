@@ -13,6 +13,10 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use App\Entity\File;
+use App\Entity\Folder;
 
 
 
@@ -25,13 +29,17 @@ class UserController extends AbstractController
     private EntityManagerInterface $entityManager;
 
     private ManagerRegistry $doctrine;
+    private Filesystem $filesystem;
+    private ParameterBagInterface $params;
 
 
-    public function __construct(EntityManagerInterface $entityManager, ManagerRegistry $doctrine)
+    public function __construct(EntityManagerInterface $entityManager, ManagerRegistry $doctrine, Filesystem $filesystem, ParameterBagInterface $params)
     {
 
         $this->entityManager = $entityManager;
         $this->doctrine = $doctrine;
+        $this->filesystem = $filesystem;
+        $this->params = $params;
 
     }
 
@@ -155,13 +163,43 @@ class UserController extends AbstractController
             return new JsonResponse(['error' => 'Access denied'], Response::HTTP_FORBIDDEN);
         }
 
+        // Get the user ID
+        $userId = $user->getId();
+
+        // Delete all files and folders associated with the user from the database and filesystem
+        $this->deleteFilesAndFoldersByUserId($userId);
 
         // Remove the user entity
         $this->entityManager->remove($user);
         $this->entityManager->flush();
 
         // Return a success response
-        return new JsonResponse(['message' => 'User deleted successfully']);
+        return new JsonResponse(['message' => 'User, associated files, and folders deleted successfully']);
+    }
+
+    private function deleteFilesAndFoldersByUserId(int $userId): void
+    {
+        // Retrieve all files and folders associated with the user ID
+        $files = $this->entityManager->getRepository(File::class)->findBy(['userId' => $userId]);
+        $folders = $this->entityManager->getRepository(Folder::class)->findBy(['userId' => $userId]);
+
+        // Delete each file from the database and the filesystem using its unique name
+        foreach ($files as $file) {
+            // Delete the actual file from the filesystem using the unique name
+            $uniqueName = $file->getUniqueName();
+            $filePath = $this->params->get('ROOT_DIRECTORY') . $uniqueName;
+            $this->filesystem->remove($filePath);
+
+            // Remove the file entity
+            $this->entityManager->remove($file);
+        }
+
+        // Delete each folder from the database
+        foreach ($folders as $folder) {
+            $this->entityManager->remove($folder);
+        }
+
+        $this->entityManager->flush();
     }
 
     /**

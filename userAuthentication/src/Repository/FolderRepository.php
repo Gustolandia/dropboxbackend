@@ -21,6 +21,16 @@ class FolderRepository extends ServiceEntityRepository
         parent::__construct($registry, Folder::class);
     }
 
+    public function getAllDescendants(Folder $folder): array
+    {
+        $descendants = [];
+        foreach ($folder->getSubfolders() as $child) {
+            $descendants[] = $child;
+            $descendants = array_merge($descendants, $this->getAllDescendants($child));
+        }
+        return $descendants;
+    }
+
 //    /**
 //     * @return Folder[] Returns an array of Folder objects
 //     */
