@@ -180,14 +180,14 @@ class UserController extends AbstractController
     private function deleteFilesAndFoldersByUserId(int $userId): void
     {
         // Retrieve all files and folders associated with the user ID
-        $files = $this->entityManager->getRepository(File::class)->findBy(['userId' => $userId]);
-        $folders = $this->entityManager->getRepository(Folder::class)->findBy(['userId' => $userId]);
+        $files = $this->entityManager->getRepository(File::class)->findBy(['user' => $userId]);
+        $folders = $this->entityManager->getRepository(Folder::class)->findBy(['user' => $userId]);
 
         // Delete each file from the database and the filesystem using its unique name
         foreach ($files as $file) {
             // Delete the actual file from the filesystem using the unique name
             $uniqueName = $file->getUniqueName();
-            $filePath = $this->params->get('ROOT_DIRECTORY') . $uniqueName;
+            $filePath = $this->params->get('ROOT_DIRECTORY') . '/'. $uniqueName;
             $this->filesystem->remove($filePath);
 
             // Remove the file entity
