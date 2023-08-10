@@ -201,8 +201,8 @@ class FileController extends AbstractController
     /**
      * @throws Exception
      */
-    #[Route('/update/{type}', name: 'file_update', methods: ['PUT'])]
-    public function update(string $type, Request $request, Filesystem $filesystem): Response
+    #[Route('/update/{type}/{id}', name: 'file_update', methods: ['PUT'])]
+    public function update(string $type, string $id, Request $request, Filesystem $filesystem): Response
     {
         // Access the authenticated user (if available)
         /** @var UserInterface|null $user */
@@ -217,7 +217,6 @@ class FileController extends AbstractController
 
 
 
-        $id = $data->id;
         $name = $data->name;
         $parentId = $data->parent_id ?? null;
         if (isset($parentId)) {
@@ -377,7 +376,7 @@ class FileController extends AbstractController
                 $entityManager->flush();
 
                 // Call the service to delete the file
-                $message = $fileService->deleteFile($file->getUniqueName(), $filesystem);
+                $message = $fileService->deleteFile($file->getUniqueName(), $filesystem, $this->params);
 
                 $entityManager->getConnection()->commit(); // commit transaction
 
