@@ -509,4 +509,59 @@ class FileController extends AbstractController
         // Return the response
         return new JsonResponse($resultArray, Response::HTTP_OK);
     }
+    #[Route('/suitable-folders/{type}/{id}', name: 'suitable_folders', methods: ['GET'])]
+    public function getSuitableFolders(string $type, string $id, Request $request): Response
+    {
+        /** @var UserInterface|null $user */
+        $user = $this->getUser();
+        if (!$user) {
+            return new JsonResponse(['error' => 'Not Authenticated'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        if ($type === 'file') {
+            $fileRepository = $this->doctrine->getRepository(File::class);
+            $file = $fileRepository->find($id);
+
+            // Get folders that belong to the user
+            $folderRepository = $this->doctrine->getRepository(Folder::class);
+            $folders = $folderRepository->findBy(['user' => $user]);
+
+            // Filter out folders that already have a file with that name
+            $suitableFolders = array_filter($folders, function ($folder) use ($file) {
+                return !$this->doctrine->getRepository(File::class)->findOneBy(['name' => $file->getName(), 'parent' => $folder]);
+            });
+
+        } else if ($type === 'folder') {
+            $folderRepository = $this->doctrine->getRepository(Folder::class);
+            $folder = $folderRepository->find($id);
+
+            // Get folders that belong to the user
+            $allFolders = $folderRepository->findBy(['user' => $user]);
+
+            // Exclude children and the folder itself
+            $descendants = $folderRepository->getAllDescendants($folder);
+            $descendants[] = $folder;
+
+            // Filter out folders that are descendants of the folder or have a folder with the same name
+            $suitableFolders = array_filter($allFolders, function ($otherFolder) use ($folder, $descendants) {
+                return !in_array($otherFolder, $descendants) &&
+                    !$this->doctrine->getRepository(Folder::class)->findOneBy(['name' => $folder->getName(), 'parent' => $otherFolder]);
+            });
+
+        } else {
+            return new JsonResponse(['error' => 'Invalid Type'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Convert folders to a suitable response format
+        $response = array_map(function ($folder) {
+            return [
+                'id' => $folder->getId(),
+                'name' => $folder->getName(),
+                'parent_id' => $folder->getParent()?->getId(),
+                'created_at' => $folder->getCreatedAt()->format('Y-m-d H:i:s')
+            ];
+        }, $suitableFolders);
+
+        return new JsonResponse($response, Response::HTTP_OK);
+    }
 }
