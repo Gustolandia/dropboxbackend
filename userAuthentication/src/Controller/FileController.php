@@ -166,37 +166,94 @@ class FileController extends AbstractController
     /**
      * @throws Exception
      */
-    #[Route('/download/{fileId}', name: 'file_download', methods: ['GET'])]
-    public function download(string $fileId, FileService $fileService): Response
+    #[Route('/download/{type}/{fileId}', name: 'file_download', methods: ['GET'])]
+    public function download(string $fileId, string $type, FileService $fileService): Response
     {
         // Access the authenticated user (if available)
         /** @var UserInterface|null $user */
         $user = $this->getUser();
 
-        $fileRepository = $this->doctrine->getRepository(File::class);
-        $file = $fileRepository->find($fileId);
-        $fileUser = $file->getUser();
-        if ($fileUser !== $user) {
-            return new Response(['error' => 'Access denied'], Response::HTTP_FORBIDDEN);
+        if ($type === 'file') {
+            $fileRepository = $this->doctrine->getRepository(File::class);
+            $file = $fileRepository->find($fileId);
+            $fileUser = $file->getUser();
+            if ($fileUser !== $user) {
+                return new Response(['error' => 'Access denied'], Response::HTTP_FORBIDDEN);
+            }
+            $fileUniqueName = $file->getUniqueName();
+            $fileName = $file->getName();
+            $baseDir = $this->params->get('ROOT_DIRECTORY');
+            $filePath = $baseDir . '\\' . $fileUniqueName;
+
+            // Call the service to download the file
+            $content = $fileService->downloadFile($filePath);
+
+            // Create and return the response with appropriate headers
+            return new Response(
+                $content,
+                Response::HTTP_OK,
+                [
+                    'Content-Type' => 'application/octet-stream',
+                    'Content-Disposition' => 'attachment; filename="' . $fileName . '"'
+                ]
+            );
+        } elseif ($type === 'folder') {
+            $folderRepository = $this->doctrine->getRepository(Folder::class);
+
+            $folder = $folderRepository->find($fileId);
+            if (!$folder) {
+                return new Response(['error' => 'Folder not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $zip = new \ZipArchive();
+            $zipFileName = tempnam(sys_get_temp_dir(), 'zip');
+            $zip->open($zipFileName, \ZipArchive::CREATE);
+
+            // Zip the desired folder and its contents
+            $this->addFolderToZip($folder, $zip);
+
+            $zip->close();
+
+            // Now you can return the zip file as a response
+            return new Response(
+                file_get_contents($zipFileName),
+                Response::HTTP_OK,
+                [
+                    'Content-Type' => 'application/zip',
+                    'Content-Disposition' => 'attachment; filename="' . $folder->getName() . '.zip"'
+                ]
+            );
+
+        } else {
+            return new Response(['error' => 'Invalid Type'], Response::HTTP_FORBIDDEN);
         }
-        $fileUniqueName = $file->getUniqueName();
-        $fileName = $file->getName();
-        $baseDir = $this->params->get('ROOT_DIRECTORY');
-        $filePath = $baseDir . '\\' . $fileUniqueName;
-
-        // Call the service to download the file
-        $content = $fileService->downloadFile($filePath);
-
-        // Create and return the response with appropriate headers
-        return new Response(
-            $content,
-            Response::HTTP_OK,
-            [
-                'Content-Type' => 'application/octet-stream',
-                'Content-Disposition' => 'attachment; filename="' . $fileName . '"'
-            ]
-        );
     }
+
+    /**
+     * @throws Exception
+     */
+    private function addFolderToZip($folder, $zip, $currentFolderPath = ''): void
+    {
+        // First, create the folder in the ZIP (even if it's empty).
+        if ($currentFolderPath) {
+            $zip->addEmptyDir($currentFolderPath);
+        }
+
+        // Add files of the current folder to the ZIP
+        foreach ($folder->getFiles() as $file) {
+            $filePath = $this->params->get('ROOT_DIRECTORY') . '\\' . $file->getUniqueName();
+            $destinationPath = $currentFolderPath ? $currentFolderPath . '/' . $file->getName() : $file->getName();
+            $zip->addFile($filePath, $destinationPath);
+        }
+
+        foreach ($folder->getSubfolders() as $subfolder) {
+            $subfolderPath = $currentFolderPath ? $currentFolderPath . '/' . $subfolder->getName() : $subfolder->getName();
+            $this->addFolderToZip($subfolder, $zip, $subfolderPath);
+        }
+    }
+
+
+
 
     /**
      * @throws Exception
@@ -418,6 +475,8 @@ class FileController extends AbstractController
         // Return the response
         return new JsonResponse(['message' => $message], Response::HTTP_OK);
     }
+
+
 
     private function deleteFolderAndContents(Folder $folder, Filesystem $filesystem, FileService $fileService): void
     {

@@ -24,10 +24,12 @@ class FolderRepository extends ServiceEntityRepository
     public function getAllDescendants(Folder $folder): array
     {
         $descendants = [];
-        foreach ($folder->getSubfolders() as $child) {
-            $descendants[] = $child;
-            $descendants = array_merge($descendants, $this->getAllDescendants($child));
+        foreach ($folder->getSubfolders() as $subfolder) {
+            $descendants[] = $subfolder;
+            $descendants = array_merge($descendants, $this->getAllDescendants($subfolder));
+
         }
+        //var_dump($descendants);
         return $descendants;
     }
 
