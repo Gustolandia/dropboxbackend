@@ -3,8 +3,11 @@
 
 namespace App\Controller;
 
+
 use App\Entity\File;
 use App\Service\FileService;
+use App\Controller\UserController;
+
 use Exception;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -33,26 +36,32 @@ use App\Entity\Folder;
 class FileController extends AbstractController
 {
     private FileService $fileService;
+    private UserController $userController;
     private ParameterBagInterface $params;
 
     private ManagerRegistry $doctrine;
 
     private EntityManagerInterface $entityManager;
 
-    public function __construct(FileService $fileService, ParameterBagInterface $params, EntityManagerInterface $entityManager, ManagerRegistry $doctrine)
+    public function __construct(FileService $fileService, ParameterBagInterface $params, EntityManagerInterface $entityManager, ManagerRegistry $doctrine, UserController $userController)
     {
         $this->fileService = $fileService;
         $this->params = $params;
         $this->entityManager = $entityManager;
         $this->doctrine = $doctrine;
+        $this->userController=$userController;
     }
 
     /**
      * @throws Exception
      */
     #[Route('/create/{type}', name: 'file_create', methods: ['POST'])]
-    public function create(string $type, Request $request, Filesystem $filesystem): Response
+    public function create(string $type, Request $request, Filesystem $filesystem, UserController $userController): Response
     {
+        $bToken = $userController->getBToken($request);
+        if ($bToken !== []) {
+            return new JsonResponse(['error' => 'Access denied' ], Response::HTTP_FORBIDDEN);
+        }
         // Access the authenticated user (if available)
         /** @var UserInterface|null $user */
         $user = $this->getUser();
@@ -167,8 +176,12 @@ class FileController extends AbstractController
      * @throws Exception
      */
     #[Route('/download/{type}/{fileId}', name: 'file_download', methods: ['GET'])]
-    public function download(string $fileId, string $type, FileService $fileService): Response
+    public function download(string $fileId, string $type, Request $request, FileService $fileService, UserController $userController): Response
     {
+        $bToken = $userController->getBToken($request);
+        if ($bToken !== []) {
+            return new JsonResponse(['error' => 'Access denied' ], Response::HTTP_FORBIDDEN);
+        }
         // Access the authenticated user (if available)
         /** @var UserInterface|null $user */
         $user = $this->getUser();
@@ -210,7 +223,7 @@ class FileController extends AbstractController
             $zip->open($zipFileName, \ZipArchive::CREATE);
 
             // Zip the desired folder and its contents
-            $this->addFolderToZip($folder, $zip);
+            $fileService->addFolderToZip($folder, $zip, '', $this->params);
 
             $zip->close();
 
@@ -232,35 +245,13 @@ class FileController extends AbstractController
     /**
      * @throws Exception
      */
-    private function addFolderToZip($folder, $zip, $currentFolderPath = ''): void
-    {
-        // First, create the folder in the ZIP (even if it's empty).
-        if ($currentFolderPath) {
-            $zip->addEmptyDir($currentFolderPath);
-        }
-
-        // Add files of the current folder to the ZIP
-        foreach ($folder->getFiles() as $file) {
-            $filePath = $this->params->get('ROOT_DIRECTORY') . '\\' . $file->getUniqueName();
-            $destinationPath = $currentFolderPath ? $currentFolderPath . '/' . $file->getName() : $file->getName();
-            $zip->addFile($filePath, $destinationPath);
-        }
-
-        foreach ($folder->getSubfolders() as $subfolder) {
-            $subfolderPath = $currentFolderPath ? $currentFolderPath . '/' . $subfolder->getName() : $subfolder->getName();
-            $this->addFolderToZip($subfolder, $zip, $subfolderPath);
-        }
-    }
-
-
-
-
-    /**
-     * @throws Exception
-     */
     #[Route('/update/{type}/{id}', name: 'file_update', methods: ['PUT'])]
-    public function update(string $type, string $id, Request $request, Filesystem $filesystem): Response
+    public function update(string $type, string $id, Request $request, Filesystem $filesystem, UserController $userController): Response
     {
+        $bToken = $userController->getBToken($request);
+        if ($bToken !== []) {
+            return new JsonResponse(['error' => 'Access denied' ], Response::HTTP_FORBIDDEN);
+        }
         // Access the authenticated user (if available)
         /** @var UserInterface|null $user */
         $user = $this->getUser();
@@ -411,8 +402,12 @@ class FileController extends AbstractController
      * @throws Exception
      */
     #[Route('/delete/{type}/{fileId}', name: 'file_delete', methods: ['DELETE'])]
-    public function delete(string $fileId, string $type, Filesystem $filesystem, FileService $fileService): JsonResponse
+    public function delete(string $fileId, string $type, Request $request, Filesystem $filesystem, FileService $fileService, UserController $userController): JsonResponse
     {
+        $bToken = $userController->getBToken($request);
+        if ($bToken !== []) {
+            return new JsonResponse(['error' => 'Access denied' ], Response::HTTP_FORBIDDEN);
+        }
         /** @var UserInterface|null $user */
         $user = $this->getUser();
 
@@ -456,7 +451,7 @@ class FileController extends AbstractController
             $entityManager->getConnection()->beginTransaction(); // start transaction
             try {
                 // Recursive delete
-                $this->deleteFolderAndContents($folder, $filesystem, $fileService);
+                $fileService->deleteFolderAndContents($folder, $filesystem, $fileService, $this->doctrine, $this->params);
                 $message = 'Folder Deleted';
                 $entityManager->getConnection()->commit(); // commit transaction
 
@@ -476,32 +471,13 @@ class FileController extends AbstractController
         return new JsonResponse(['message' => $message], Response::HTTP_OK);
     }
 
-
-
-    private function deleteFolderAndContents(Folder $folder, Filesystem $filesystem, FileService $fileService): void
-    {
-        $entityManager = $this->doctrine->getManager();
-
-
-        // Delete subfolders
-        foreach ($folder->getSubfolders() as $subfolder) {
-            $this->deleteFolderAndContents($subfolder, $filesystem, $fileService);
-        }
-
-        // Delete files in folder
-        foreach ($folder->getFiles() as $file) {
-            $fileService->deleteFile($file->getUniqueName(), $filesystem, $this->params);
-            $entityManager->remove($file);
-        }
-
-        // Delete the folder from the database
-        $entityManager->remove($folder);
-        $entityManager->flush();
-    }
-
     #[Route('/getMetadata/{parentId}', name: 'file_getMetadata', methods: ['GET'])]
-    public function getMetadata(?string $parentId): Response
+    public function getMetadata(?string $parentId, Request $request, UserController $userController): Response
     {
+        $bToken = $userController->getBToken($request);
+        if ($bToken !== []) {
+            return new JsonResponse(['error' => 'Access denied' ], Response::HTTP_FORBIDDEN);
+        }
         // Access the authenticated user (if available)
         /** @var UserInterface|null $user */
         $user = $this->getUser();
@@ -568,9 +544,14 @@ class FileController extends AbstractController
         // Return the response
         return new JsonResponse($resultArray, Response::HTTP_OK);
     }
+
     #[Route('/suitable-folders/{type}/{id}', name: 'suitable_folders', methods: ['GET'])]
-    public function getSuitableFolders(string $type, string $id, Request $request): Response
+    public function getSuitableFolders(string $type, string $id, Request $request, UserController $userController): Response
     {
+        $bToken = $userController->getBToken($request);
+        if ($bToken !== []) {
+            return new JsonResponse(['error' => 'Access denied' ], Response::HTTP_FORBIDDEN);
+        }
         /** @var UserInterface|null $user */
         $user = $this->getUser();
         if (!$user) {
