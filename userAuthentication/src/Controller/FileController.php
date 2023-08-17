@@ -85,8 +85,6 @@ class FileController extends AbstractController
         $content = $data->content ?? null;
 
         $entityManager = $this->doctrine->getManager();
-        $file = null;
-        $folder = null;
 
         if ($type === 'folder') {
 
@@ -112,6 +110,7 @@ class FileController extends AbstractController
             $entityManager->flush();
 
         } else if ($type === 'file') {
+            $size=$data->size;
             $entityManager = $this->doctrine->getManager();
             $entityManager->getConnection()->beginTransaction(); // start transaction
             $decodedContent = base64_decode($content);
@@ -132,6 +131,7 @@ class FileController extends AbstractController
                 // Save to database
                 $file = new File();
                 $file->setName($name);
+                $file->setSize($size);
                 if (isset($parentId)) {
                     $folderRepository = $this->doctrine->getRepository(Folder::class);
                     $folder = $folderRepository->find($parentId);
@@ -163,14 +163,20 @@ class FileController extends AbstractController
             return new JsonResponse(['error' => 'Invalid Type'], Response::HTTP_FORBIDDEN);
         }
 
-
-        return $this->json([
-            'id' => $file !== null ? $file->getId() : ($folder?->getId()),
+        $responseData=[
+            'id' => $type === 'file' ? $file->getId() : ($folder?->getId()),
             'name' => $name,
             'type' => $type,
             'parent_id' => $parentId,
             'created_at' => date('Y-m-d H:i:s')
-        ], Response::HTTP_CREATED);    }
+        ];
+        if ($type === 'file') {
+            $responseData['size']=$size;
+        }
+
+        return $this->json($responseData, Response::HTTP_CREATED);
+
+    }
 
     /**
      * @throws Exception
@@ -302,12 +308,15 @@ class FileController extends AbstractController
                     return new JsonResponse(['error' => 'A file with this name already exists in this parent folder'], Response::HTTP_CONFLICT);
                 }
                 if ($content) {
+                    $size=$data->size;
+                    $originalFile->setSize($size);
                     $decodedContent = base64_decode($content);
                     $filesystem->dumpFile($baseDir . '\\' . $uniqueName, $decodedContent);
                 }
 
                 // Update the file's metadata
                 $originalFile->setName($name);
+
                 if (isset($parentId)) {
                     $folderRepository = $this->doctrine->getRepository(Folder::class);
                     $folder = $folderRepository->find($parentId);
@@ -326,6 +335,7 @@ class FileController extends AbstractController
                 $result = [
                     'id' => $originalFile->getId(),
                     'name' => $originalFile->getName(),
+                    'size' => $originalFile->getSize(),
                     'type' => 'file',
                     'parent_id' => $originalFile->getParent() !== null ? $originalFile->getParent()->getId() : null,
                     'created_at' => $originalFile->getCreatedAt()->format('Y-m-d H:i:s'),
@@ -534,6 +544,7 @@ class FileController extends AbstractController
             return [
                 'id' => $item->getId(),
                 'name' => $item->getName(),
+                'size' => get_class($item) === File::class ? $item->getSize() : null,
                 'type' => get_class($item) === File::class ? 'file' : 'folder',
                 'parent_id' => $item->getParent() !== null ? $item->getParent()->getId() : null,
                 'created_at' => $item->getCreatedAt()->format('Y-m-d H:i:s'),

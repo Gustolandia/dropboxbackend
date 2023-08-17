@@ -33,6 +33,9 @@ class File
     #[ORM\Column(length: 255)]
     private ?string $uniqueName = null;
 
+    #[ORM\Column]
+    private ?int $size = null;
+
 
     public function getId(): ?int
     {
@@ -110,6 +113,18 @@ class File
     public function setUniqueName(string $uniqueName): static
     {
         $this->uniqueName = $uniqueName;
+
+        return $this;
+    }
+
+    public function getSize(): ?int
+    {
+        return $this->size;
+    }
+
+    public function setSize(int $size): static
+    {
+        $this->size = $size;
 
         return $this;
     }
