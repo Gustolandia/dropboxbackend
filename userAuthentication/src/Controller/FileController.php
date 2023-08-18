@@ -69,6 +69,7 @@ class FileController extends AbstractController
             // No user is authenticated - handle this case as needed
             throw new AccessDeniedHttpException('Not authenticated');
         }
+        $userId=$user->getId();
 
 
         $data = json_decode($request->getContent());
@@ -99,7 +100,7 @@ class FileController extends AbstractController
             }
 
             // Check if a folder with the same name and parentId already exists
-            $existingFolder = $folderRepository->findOneBy(['name' => $name, 'parent' => $parentId]);
+            $existingFolder = $folderRepository->findOneBy(['name' => $name, 'parent' => $parentId, 'user' => $userId]);
             if ($existingFolder !== null) {
                 return new JsonResponse(['error' => 'A folder with this name already exists in this parent folder'], Response::HTTP_CONFLICT);
             }
@@ -121,7 +122,7 @@ class FileController extends AbstractController
                 $fileRepository = $this->doctrine->getRepository(File::class);
 
                 // Check if a file with the same name and parentId already exists
-                $existingFile = $fileRepository->findOneBy(['name' => $name, 'parent' => $parentId]);
+                $existingFile = $fileRepository->findOneBy(['name' => $name, 'parent' => $parentId, 'user' => $userId]);
                 if ($existingFile !== null) {
                     return new JsonResponse(['error' => 'A file with this name already exists in this parent folder'], Response::HTTP_CONFLICT);
                 }
@@ -262,7 +263,7 @@ class FileController extends AbstractController
         /** @var UserInterface|null $user */
         $user = $this->getUser();
 
-
+        $userId=$user->getId();
         // Get the request data
         $data = json_decode($request->getContent());
         if (json_last_error() !== JSON_ERROR_NONE) {
@@ -301,7 +302,7 @@ class FileController extends AbstractController
                 $fileRepository = $this->doctrine->getRepository(File::class);
 
                 // Check if a file with the same name and parentId already exists
-                $existingFile = $fileRepository->findOneBy(['name' => $name, 'parent' => $parentId]);
+                $existingFile = $fileRepository->findOneBy(['name' => $name, 'parent' => $parentId, 'user' => $userId]);
 
                 if ($existingFile !== null && $existingFile->getId() !== $id) {
                     // There is another file with the same name and parent, which is not the file we're updating
@@ -381,7 +382,7 @@ class FileController extends AbstractController
             }
 
             // Check if a folder with the same name and parentId already exists but not with the same id
-            $existingFolder = $folderRepository->findOneBy(['name' => $name, 'parent' => $parentId]);
+            $existingFolder = $folderRepository->findOneBy(['name' => $name, 'parent' => $parentId, 'user' => $userId]);
 
             if ($existingFolder !== null && $existingFolder->getId() !== $id) {
                 // There is another folder with the same name and parent, which is not the folder we're updating
@@ -576,6 +577,7 @@ class FileController extends AbstractController
             // Get folders that belong to the user
             $folderRepository = $this->doctrine->getRepository(Folder::class);
             $folders = $folderRepository->findBy(['user' => $user]);
+            $folders[] = null;  // Adding the root
 
             // Filter out folders that already have a file with that name
             $suitableFolders = array_filter($folders, function ($folder) use ($file) {
@@ -588,6 +590,7 @@ class FileController extends AbstractController
 
             // Get folders that belong to the user
             $allFolders = $folderRepository->findBy(['user' => $user]);
+            $allFolders[] = null;  // Adding the root
 
             // Exclude children and the folder itself
             $descendants = $folderRepository->getAllDescendants($folder);
@@ -606,10 +609,10 @@ class FileController extends AbstractController
         // Convert folders to a suitable response format
         $response = array_map(function ($folder) {
             return [
-                'id' => $folder->getId(),
-                'name' => $folder->getName(),
-                'parent_id' => $folder->getParent()?->getId(),
-                'created_at' => $folder->getCreatedAt()->format('Y-m-d H:i:s')
+                'id' => $folder!==null?$folder->getId():null,
+                'name' => $folder!==null?$folder->getName():null,
+                'parent_id' => $folder!==null?$folder->getParent()?->getId():null,
+                'created_at' => $folder!==null?$folder->getCreatedAt()->format('Y-m-d H:i:s'):null
             ];
         }, $suitableFolders);
 
