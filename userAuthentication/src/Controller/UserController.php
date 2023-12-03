@@ -6,6 +6,9 @@ use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use App\Service\UserService;
+
+
 use Symfony\Component\Routing\Annotation\Route;
 use App\Entity\User;
 use App\Entity\BlacklistedToken;
@@ -26,6 +29,8 @@ use App\Entity\Folder;
 
 class UserController extends AbstractController
 {
+    private UserService $userService;
+
     private EntityManagerInterface $entityManager;
 
     private ManagerRegistry $doctrine;
@@ -33,9 +38,9 @@ class UserController extends AbstractController
     private ParameterBagInterface $params;
 
 
-    public function __construct(EntityManagerInterface $entityManager, ManagerRegistry $doctrine, Filesystem $filesystem, ParameterBagInterface $params)
+    public function __construct(EntityManagerInterface $entityManager, ManagerRegistry $doctrine, Filesystem $filesystem, ParameterBagInterface $params, UserService $userService)
     {
-
+        $this->userService = $userService;
         $this->entityManager = $entityManager;
         $this->doctrine = $doctrine;
         $this->filesystem = $filesystem;
@@ -49,7 +54,7 @@ class UserController extends AbstractController
     public function me(Request $request): Response
     {
 
-        $bToken = $this->getBToken($request);
+        $bToken = $this->userService ->getBToken($request, $this->doctrine);
         if ($bToken !== []) {
             return new JsonResponse(['error' => 'Access denied' ], Response::HTTP_FORBIDDEN);
         }
@@ -85,7 +90,7 @@ class UserController extends AbstractController
      */
     public function editUser(Request $request, UserPasswordHasherInterface $passwordHasher): Response
     {
-        $bToken = $this->getBToken($request);
+        $bToken = $this->userService ->getBToken($request, $this->doctrine);
         if ($bToken !== []) {
             return new JsonResponse(['error' => 'Access denied' ], Response::HTTP_FORBIDDEN);
         }
@@ -129,7 +134,7 @@ class UserController extends AbstractController
      */
     public function logout(Request $request)
     {
-        $bToken = $this->getBToken($request);
+        $bToken = $this->userService ->getBToken($request, $this->doctrine);
         if ($bToken !== []) {
             return new JsonResponse(['error' => 'Access denied' ], Response::HTTP_FORBIDDEN);
         }
@@ -154,7 +159,7 @@ class UserController extends AbstractController
      */
     public function delete(Request $request, UserInterface $user): JsonResponse
     {
-        $bToken = $this->getBToken($request);
+        $bToken = $this->userService ->getBToken($request, $this->doctrine);
         if ($bToken !== []) {
             return new JsonResponse(['error' => 'Access denied' ], Response::HTTP_FORBIDDEN);
         }
@@ -167,7 +172,7 @@ class UserController extends AbstractController
         $userId = $user->getId();
 
         // Delete all files and folders associated with the user from the database and filesystem
-        $this->deleteFilesAndFoldersByUserId($userId);
+        $this->userService->deleteFilesAndFoldersByUserId($userId, $this->entityManager, $this->params);
 
         // Remove the user entity
         $this->entityManager->remove($user);
@@ -177,48 +182,7 @@ class UserController extends AbstractController
         return new JsonResponse(['message' => 'User, associated files, and folders deleted successfully']);
     }
 
-    private function deleteFilesAndFoldersByUserId(int $userId): void
-    {
-        // Retrieve all files and folders associated with the user ID
-        $files = $this->entityManager->getRepository(File::class)->findBy(['user' => $userId]);
-        $folders = $this->entityManager->getRepository(Folder::class)->findBy(['user' => $userId]);
 
-        // Delete each file from the database and the filesystem using its unique name
-        foreach ($files as $file) {
-            // Delete the actual file from the filesystem using the unique name
-            $uniqueName = $file->getUniqueName();
-            $filePath = $this->params->get('ROOT_DIRECTORY') . '/'. $uniqueName;
-            $this->filesystem->remove($filePath);
-
-            // Remove the file entity
-            $this->entityManager->remove($file);
-        }
-
-        // Delete each folder from the database
-        foreach ($folders as $folder) {
-            $this->entityManager->remove($folder);
-        }
-
-        $this->entityManager->flush();
-    }
-
-    /**
-     * @param Request $request
-     * @return float|int|mixed|string
-     */
-    public function getBToken(Request $request): mixed
-    {
-        $authorizationHeader = $request->headers->get('Authorization');
-        $token = str_replace('Bearer ', '', $authorizationHeader);
-
-        $bTokenRepository = $this->doctrine->getRepository(BlacklistedToken::class);
-        $bToken = $bTokenRepository->createQueryBuilder('t')
-            ->where('t.token LIKE :token')
-            ->setParameter('token', '%' . $token . '%')
-            ->getQuery()
-            ->getResult();
-        return $bToken;
-    }
 
 
 }
