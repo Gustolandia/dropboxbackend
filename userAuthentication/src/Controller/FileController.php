@@ -8,6 +8,7 @@ use App\Entity\File;
 use App\Service\FileService;
 use App\Controller\UserController;
 
+use App\Service\UserService;
 use Exception;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -35,6 +36,7 @@ use App\Entity\Folder;
  */
 class FileController extends AbstractController
 {
+
     private FileService $fileService;
     private UserController $userController;
     private ParameterBagInterface $params;
@@ -42,9 +44,12 @@ class FileController extends AbstractController
     private ManagerRegistry $doctrine;
 
     private EntityManagerInterface $entityManager;
+    private UserService $userService;
 
-    public function __construct(FileService $fileService, ParameterBagInterface $params, EntityManagerInterface $entityManager, ManagerRegistry $doctrine, UserController $userController)
+    public function __construct(FileService $fileService, ParameterBagInterface $params, EntityManagerInterface $entityManager, ManagerRegistry $doctrine, UserController $userController, UserService $userService)
     {
+        $this->userService = $userService;
+
         $this->fileService = $fileService;
         $this->params = $params;
         $this->entityManager = $entityManager;
@@ -58,7 +63,7 @@ class FileController extends AbstractController
     #[Route('/create/{type}', name: 'file_create', methods: ['POST'])]
     public function create(string $type, Request $request, Filesystem $filesystem, UserController $userController): Response
     {
-        $bToken = $userController->getBToken($request);
+        $bToken = $this->userService ->getBToken($request, $this->doctrine);
         if ($bToken !== []) {
             return new JsonResponse(['error' => 'Access denied' ], Response::HTTP_FORBIDDEN);
         }
@@ -76,7 +81,6 @@ class FileController extends AbstractController
 
         $name = $data->name;
         $parentId = $data->parent_id ?? null;
-
         if (isset($parentId)) {
             $parentFolder = $this->doctrine->getRepository(Folder::class)->find($parentId);
             if (!$parentFolder || $parentFolder->getUser() !== $user) {
@@ -86,7 +90,7 @@ class FileController extends AbstractController
         $content = $data->content ?? null;
 
         $entityManager = $this->doctrine->getManager();
-
+        $uniqueName=null;
         if ($type === 'folder') {
 
             // Save to database
@@ -110,6 +114,7 @@ class FileController extends AbstractController
             $entityManager->persist($folder);
             $entityManager->flush();
 
+
         } else if ($type === 'file') {
             $size=$data->size;
             $entityManager = $this->doctrine->getManager();
@@ -127,7 +132,7 @@ class FileController extends AbstractController
                     return new JsonResponse(['error' => 'A file with this name already exists in this parent folder'], Response::HTTP_CONFLICT);
                 }
 
-                $filesystem->dumpFile($baseDir . '\\' . $uniqueName, $decodedContent);
+                $filesystem->dumpFile($baseDir . '/'. $userId.'/'. $uniqueName, $decodedContent);
 
                 // Save to database
                 $file = new File();
@@ -153,8 +158,8 @@ class FileController extends AbstractController
                 $entityManager->getConnection()->rollBack();
 
                 // Delete the file from the filesystem
-                if ($filesystem->exists($baseDir . '\\' . $uniqueName)) {
-                    $filesystem->remove($baseDir . '\\' . $uniqueName);
+                if ($filesystem->exists($baseDir . '/'. $userId.'/'. $uniqueName)) {
+                    $filesystem->remove($baseDir . '/'. $userId.'/'. $uniqueName);
                 }
                 throw $e; // throw the exception again, handle it at a higher level or return a response
                 return new JsonResponse(['message' => $e], Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -175,6 +180,32 @@ class FileController extends AbstractController
             $responseData['size']=$size;
         }
 
+        $jsonFilePath = $this->params->get('ROOT_DIRECTORY').'/' . $userId . '/' . $userId . '.json';
+
+// Check if the json file of the db already exists
+        if (file_exists($jsonFilePath)) {
+            // File exists, read the existing content
+            $existingData = json_decode(file_get_contents($jsonFilePath), true);
+        } else {
+            // File does not exist, initialize with empty arrays
+            $existingData = ['files' => [], 'folders' => []];
+        }
+
+// Append the new data
+        if ($type === 'file') {
+            $responseDataFile=$responseData;
+            $responseDataFile['unique_name']=$uniqueName;
+            $existingData['files'][] = $responseDataFile;
+        } else {
+            $existingData['folders'][] = $responseData;
+        }
+
+// Write the updated data back to the file
+        file_put_contents($jsonFilePath, json_encode($existingData, JSON_PRETTY_PRINT));
+
+// ...
+
+// Return your response
         return $this->json($responseData, Response::HTTP_CREATED);
 
     }
@@ -185,13 +216,14 @@ class FileController extends AbstractController
     #[Route('/download/{type}/{fileId}', name: 'file_download', methods: ['GET'])]
     public function download(string $fileId, string $type, Request $request, FileService $fileService, UserController $userController): Response
     {
-        $bToken = $userController->getBToken($request);
+        $bToken = $this->userService ->getBToken($request, $this->doctrine);
         if ($bToken !== []) {
             return new JsonResponse(['error' => 'Access denied' ], Response::HTTP_FORBIDDEN);
         }
         // Access the authenticated user (if available)
         /** @var UserInterface|null $user */
         $user = $this->getUser();
+        $userId=$user->getId();
 
         if ($type === 'file') {
             $fileRepository = $this->doctrine->getRepository(File::class);
@@ -200,10 +232,10 @@ class FileController extends AbstractController
             if ($fileUser !== $user) {
                 return new Response(['error' => 'Access denied'], Response::HTTP_FORBIDDEN);
             }
-            $fileUniqueName = $file->getUniqueName();
+            $uniqueName = $file->getUniqueName();
             $fileName = $file->getName();
             $baseDir = $this->params->get('ROOT_DIRECTORY');
-            $filePath = $baseDir . '\\' . $fileUniqueName;
+            $filePath = $baseDir . '/'. $userId.'/'. $uniqueName;
 
             // Call the service to download the file
             $content = $fileService->downloadFile($filePath);
@@ -230,7 +262,7 @@ class FileController extends AbstractController
             $zip->open($zipFileName, \ZipArchive::CREATE);
 
             // Zip the desired folder and its contents
-            $fileService->addFolderToZip($folder, $zip, '', $this->params);
+            $fileService->addFolderToZip($folder, $userId, $zip, '', $this->params);
 
             $zip->close();
 
@@ -255,7 +287,7 @@ class FileController extends AbstractController
     #[Route('/update/{type}/{id}', name: 'file_update', methods: ['PUT'])]
     public function update(string $type, string $id, Request $request, Filesystem $filesystem, UserController $userController): Response
     {
-        $bToken = $userController->getBToken($request);
+        $bToken = $this->userService ->getBToken($request, $this->doctrine);
         if ($bToken !== []) {
             return new JsonResponse(['error' => 'Access denied' ], Response::HTTP_FORBIDDEN);
         }
@@ -266,6 +298,7 @@ class FileController extends AbstractController
         $userId=$user->getId();
         // Get the request data
         $data = json_decode($request->getContent());
+        //var_dump($data);
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new \Exception('Invalid JSON: ' . json_last_error_msg());
         }
@@ -281,6 +314,14 @@ class FileController extends AbstractController
             }
         }
         $content = $data->content ?? null;
+
+        $zpoolDir = $this->params->get('ROOT_DIRECTORY');
+        $jsonFile = $zpoolDir . '/' . $userId . '/' . $userId .'.json';
+        //var_dump($jsonFile);
+        if (!file_exists($jsonFile)) {
+            return new JsonResponse(['error' => 'JSON file does not exist'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+        $jsonData = json_decode(file_get_contents($jsonFile), true);
 
 
         // Update the file or folder
@@ -312,7 +353,7 @@ class FileController extends AbstractController
                     $size=$data->size;
                     $originalFile->setSize($size);
                     $decodedContent = base64_decode($content);
-                    $filesystem->dumpFile($baseDir . '\\' . $uniqueName, $decodedContent);
+                    $filesystem->dumpFile($baseDir . '/'. $userId.'/'. $uniqueName, $decodedContent);
                 }
 
                 // Update the file's metadata
@@ -340,8 +381,23 @@ class FileController extends AbstractController
                     'type' => 'file',
                     'parent_id' => $originalFile->getParent() !== null ? $originalFile->getParent()->getId() : null,
                     'created_at' => $originalFile->getCreatedAt()->format('Y-m-d H:i:s'),
-                    // Add other properties you need
+
                 ];
+                foreach ($jsonData['files'] as &$file) {
+
+                    if ($file['id'] === $originalFile->getId()) {
+                        $file['name'] = $originalFile->getName();
+                        $file['size'] = $originalFile->getSize();
+                        $file['parent_id'] = $originalFile->getParent() !== null ? $originalFile->getParent()->getId() : null;
+                        $file['created_at'] = $originalFile->getCreatedAt()->format('Y-m-d H:i:s');
+                        $file['unique_name']=$originalFile->getUniqueName();
+                        break;
+                    }
+                }
+
+                if (file_put_contents($jsonFile, json_encode($jsonData, JSON_PRETTY_PRINT)) === false) {
+                    return new JsonResponse(['error' => 'Failed to write to JSON file'], Response::HTTP_INTERNAL_SERVER_ERROR);
+                }
 
                 return new JsonResponse($result, Response::HTTP_OK);
             } catch (Exception $e) {
@@ -349,8 +405,8 @@ class FileController extends AbstractController
                 $entityManager->getConnection()->rollBack();
 
                 // Delete the file from the filesystem
-                if ($filesystem->exists($baseDir . '\\' . $uniqueName)) {
-                    $filesystem->remove($baseDir . '\\' . $uniqueName);
+                if ($filesystem->exists($baseDir . '/' . $userId . '/' . $uniqueName)) {
+                    $filesystem->remove($baseDir . '/' . $userId . '/' . $uniqueName);
                 }
                 throw $e; // throw the exception again, handle it at a higher level or return a response
                 return new JsonResponse(['message' => $e], Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -399,8 +455,22 @@ class FileController extends AbstractController
                 'type' => 'folder',
                 'parent_id' => $folder->getParent()?->getId(),
                 'created_at' => $folder->getCreatedAt()->format('Y-m-d H:i:s'),
-                // Add other properties you need
+
             ];
+
+            foreach ($jsonData['folders'] as &$folder1) {
+                if ($folder1['id'] === $folder->getId()) {
+                    $folder1['name'] = $folder->getName();
+                    $folder1['parent_id'] = $folder->getParent()?->getId();
+                    $folder1['created_at'] = $folder->getCreatedAt()->format('Y-m-d H:i:s');
+
+                    break;
+                }
+            }
+
+            if (file_put_contents($jsonFile, json_encode($jsonData, JSON_PRETTY_PRINT)) === false) {
+                return new JsonResponse(['error' => 'Failed to write to JSON file'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            }
 
             return new JsonResponse($result, Response::HTTP_OK);
         } else {
@@ -415,12 +485,13 @@ class FileController extends AbstractController
     #[Route('/delete/{type}/{fileId}', name: 'file_delete', methods: ['DELETE'])]
     public function delete(string $fileId, string $type, Request $request, Filesystem $filesystem, FileService $fileService, UserController $userController): JsonResponse
     {
-        $bToken = $userController->getBToken($request);
+        $bToken = $this->userService ->getBToken($request, $this->doctrine);
         if ($bToken !== []) {
             return new JsonResponse(['error' => 'Access denied' ], Response::HTTP_FORBIDDEN);
         }
         /** @var UserInterface|null $user */
         $user = $this->getUser();
+        $userId=$user->getId();
 
 
         if ($type === 'file') {
@@ -439,7 +510,7 @@ class FileController extends AbstractController
                 $entityManager->flush();
 
                 // Call the service to delete the file
-                $message = $fileService->deleteFile($file->getUniqueName(), $filesystem, $this->params);
+                $message = $fileService->deleteFile($file->getUniqueName(), $userId, $filesystem, $this->params);
 
                 $entityManager->getConnection()->commit(); // commit transaction
 
@@ -450,6 +521,20 @@ class FileController extends AbstractController
                 throw $e; // throw the exception again, handle it at a higher level or return a response
                 return new JsonResponse(['message' => $e], Response::HTTP_INTERNAL_SERVER_ERROR);
             }
+
+            // After deleting the file from the database and filesystem,
+            // also remove it from the JSON file
+            $jsonFile = $this->params->get('ROOT_DIRECTORY').'/' . $userId . '/' . $userId . '.json';
+            $jsonData = json_decode(file_get_contents($jsonFile), true);
+
+            foreach ($jsonData['files'] as $key => $item) {
+                if ($item['id'] == $fileId) {
+                    unset($jsonData['files'][$key]);
+                    break;
+                }
+            }
+
+            file_put_contents($jsonFile, json_encode($jsonData, JSON_PRETTY_PRINT));
         } else if ($type === 'folder') {
             $folderRepository = $this->doctrine->getRepository(Folder::class);
             $folder = $folderRepository->find($fileId);
@@ -462,7 +547,7 @@ class FileController extends AbstractController
             $entityManager->getConnection()->beginTransaction(); // start transaction
             try {
                 // Recursive delete
-                $fileService->deleteFolderAndContents($folder, $filesystem, $fileService, $this->doctrine, $this->params);
+                $fileService->deleteFolderAndContents($folder, $userId, $filesystem, $fileService, $this->doctrine, $this->params);
                 $message = 'Folder Deleted';
                 $entityManager->getConnection()->commit(); // commit transaction
 
@@ -485,7 +570,7 @@ class FileController extends AbstractController
     #[Route('/getMetadata/{parentId}', name: 'file_getMetadata', methods: ['GET'])]
     public function getMetadata(?string $parentId, Request $request, UserController $userController): Response
     {
-        $bToken = $userController->getBToken($request);
+        $bToken = $this->userService ->getBToken($request, $this->doctrine);
         if ($bToken !== []) {
             return new JsonResponse(['error' => 'Access denied' ], Response::HTTP_FORBIDDEN);
         }
@@ -560,7 +645,7 @@ class FileController extends AbstractController
     #[Route('/suitable-folders/{type}/{id}', name: 'suitable_folders', methods: ['GET'])]
     public function getSuitableFolders(string $type, string $id, Request $request, UserController $userController): Response
     {
-        $bToken = $userController->getBToken($request);
+        $bToken = $this->userService ->getBToken($request, $this->doctrine);
         if ($bToken !== []) {
             return new JsonResponse(['error' => 'Access denied' ], Response::HTTP_FORBIDDEN);
         }
