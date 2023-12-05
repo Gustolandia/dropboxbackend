@@ -27,6 +27,7 @@ Create a ZFS pool named `filebox` using the following command:
 ```bash
 
 sudo zpool create filebox -o ashift=12 raidz3 <drive_list>
+```
 
  
 
@@ -59,7 +60,7 @@ datto ALL=(ALL) NOPASSWD: /usr/sbin/zfs snapshot filebox/*
 datto ALL=(ALL) NOPASSWD: /usr/local/bin/custom_chown.sh /filebox/*
 
 datto ALL=(ALL) NOPASSWD: /usr/sbin/zfs destroy -r filebox/*
-
+```
  
 
 ### Environment Configuration
@@ -107,7 +108,7 @@ ROOT_DIRECTORY=/filebox
 ROOT_ZPOOL=filebox
 
 APP_DEBUG=1
-
+```
  
 
 ### API Endpoints
