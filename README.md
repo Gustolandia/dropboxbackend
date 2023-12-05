@@ -12,6 +12,8 @@ This document provides setup instructions for the backend of a Dropbox clone. Th
 
 - Ubuntu Server
 
+- MySQL running on the Ubuntu server
+
 - Drives for ZFS pool (virtualized in VM is acceptable)
 
  
@@ -113,7 +115,7 @@ APP_DEBUG=1
 
 ### API Endpoints
 
- To understand how to integrate them with frontend end please check [Dropbox Froentend](https://github.com/Gustolandia/dropboxfrontend)
+ To understand how to integrate them with frontend end please check [Dropbox Frontend](https://github.com/Gustolandia/dropboxfrontend)
 
 #### Authentication
 
