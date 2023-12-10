@@ -6,9 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="fea65c1f-adae-4cae-ab94-faacee6ff497" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/userAuthentication/config/packages/security.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/userAuthentication/config/packages/security.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/userAuthentication/config/routes.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/userAuthentication/config/routes.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/userAuthentication/src/Controller/UserController.php" beforeDir="false" afterPath="$PROJECT_DIR$/userAuthentication/src/Controller/UserController.php" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/userAuthentication/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/userAuthentication/.gitignore" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -26,6 +24,9 @@
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
   </component>
   <component name="PhpWorkspaceProjectConfiguration" interpreter_name="PHP">
     <include_path>
@@ -145,6 +146,21 @@
       <workItem from="1690358383369" duration="1011000" />
       <workItem from="1690448316900" duration="92000" />
       <workItem from="1690448420547" duration="10691000" />
+      <workItem from="1690477526694" duration="67000" />
+      <workItem from="1690477607283" duration="198000" />
+      <workItem from="1690530354405" duration="1898000" />
+      <workItem from="1690664008169" duration="3471000" />
+      <workItem from="1690804152613" duration="38866000" />
+      <workItem from="1691045256354" duration="19640000" />
+      <workItem from="1691132176775" duration="17819000" />
+      <workItem from="1691403016001" duration="829000" />
+      <workItem from="1691403883101" duration="11565000" />
+      <workItem from="1691742715356" duration="6956000" />
+      <workItem from="1692005652344" duration="23052000" />
+      <workItem from="1692346210020" duration="4385000" />
+      <workItem from="1692365757324" duration="641000" />
+      <workItem from="1692799866665" duration="5868000" />
+      <workItem from="1693472610072" duration="7000" />
     </task>
     <servers />
   </component>

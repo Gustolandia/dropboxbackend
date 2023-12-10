@@ -43,16 +43,57 @@ class ZfsService
         }
     }
 
+    function reorderFolders(array $folders): array
+    {
+        $folderMap = [];
+        foreach ($folders as $folder) {
+            $folderMap[$folder['id']] = $folder;
+        }
+
+        $sortedFolders = [];
+        $processed = [];
+
+        function processFolder($folderId, &$folderMap, &$sortedFolders, &$processed) {
+            if (isset($processed[$folderId])) {
+                // Already processed this folder
+                return;
+            }
+
+            $folder = $folderMap[$folderId];
+            if ($folder['parent_id'] !== null && isset($folderMap[$folder['parent_id']])) {
+                // Process parent folder first
+                processFolder($folder['parent_id'], $folderMap, $sortedFolders, $processed);
+            }
+
+            // Add this folder to sorted list
+            $sortedFolders[] = $folder;
+            $processed[$folderId] = true;
+        }
+
+        foreach ($folderMap as $folderId => $folder) {
+            processFolder($folderId, $folderMap, $sortedFolders, $processed);
+        }
+
+        return $sortedFolders;
+    }
+
+
+
     /**
-     * @throws Exception
-     */
+    * @throws Exception
+    */
     public function populateUserData(array $jsonData, int $userId, EntityManagerInterface $entityManager): void
     {
         $em = $entityManager;
         $conn = $em->getConnection();
         $conn->beginTransaction();
+
         try {
-            foreach ($jsonData['folders'] as $folder) {
+            // Reorder folders
+            $sortedFolders = $this->reorderFolders($jsonData['folders']);
+
+            // Insert reordered folders
+            foreach ($sortedFolders as $folder) {
                 $conn->executeQuery('INSERT INTO folder (id, name, type, parent_id, created_at, user_id) VALUES (:id, :name, :type, :parentId, :createdAt, :userId)', [
                     'id' => $folder['id'],
                     'name' => $folder['name'],
